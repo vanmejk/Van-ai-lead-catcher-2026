@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Local AI Lead Catcher</title>
+<style>
+body{margin:0;background:#0b1020;color:#edf3ff;font-family:system-ui,sans-serif}
+.wrap{max-width:1100px;margin:auto;padding:24px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.brand{font-size:24px;font-weight:800}.brand span{color:#5eead4}
+.grid{display:grid;grid-template-columns:1fr 1.3fr;gap:18px}
+.card{background:#121a2d;border:1px solid #293752;border-radius:16px;padding:18px}
+input,textarea{width:100%;box-sizing:border-box;background:#0b1324;color:white;border:1px solid #30405e;border-radius:9px;padding:11px;margin:6px 0 12px}
+textarea{min-height:130px}
+button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer;background:#5eead4}
+.lead{background:#0b1324;border:1px solid #273650;border-radius:12px;padding:13px;margin:10px 0}
+.badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#23334e;font-size:11px;margin-right:5px}
+.high{background:#522431}
+.reply{background:#153a32;border-radius:10px;padding:12px;margin-top:10px}
+.muted{color:#9eabc5;font-size:13px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<div class="top">
+<div>
+<div class="brand">Local <span>AI</span> Lead Catcher</div>
+<div class="muted">AI enquiry handling + lead dashboard</div>
+</div>
+</div>
+
+<div class="grid">
+
+<section class="card">
+<h2>Customer enquiry</h2>
+
+<input id="name" placeholder="Name">
+<input id="phone" placeholder="Phone">
+<input id="email" placeholder="Email">
+
+<textarea id="message" placeholder="Type the customer's enquiry..."></textarea>
+
+<button onclick="send()">Send enquiry to AI</button>
+
+<div id="result"></div>
+</section>
+
+<section class="card">
+
+<h2>Business leads</h2>
+
+<div id="leads" class="muted">
+Loading...
+</div>
+
+</section>
+
+</div>
+</div>
+
+<script>
+
+async function send(){
+
+const body={
+name:name.value,
+phone:phone.value,
+email:email.value,
+message:message.value
+};
+
+result.innerHTML="Analysing...";
+
+const r=await fetch("/api/leads",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify(body)
+});
+
+const d=await r.json();
+
+if(!r.ok){
+result.innerHTML="<p>"+d.error+"</p>";
+return;
+}
+
+result.innerHTML=`
+<div class="reply">
+<b>AI response</b>
+<p>${esc(d.reply)}</p>
+<span class="badge">${esc(d.intent)}</span>
+<span class="badge">${esc(d.urgency)} urgency</span>
+<span class="badge">Score ${d.score}</span>
+</div>`;
+
+load();
+}
+
+async function load(){
+
+const r=await fetch("/api/leads");
+const a=await r.json();
+
+leads.innerHTML=a.length
+?a.map(x=>`
+
+<div class="lead">
+
+<b>${esc(x.name||"Customer")}</b>
+
+<span class="badge ${x.urgency==="High"?"high":""}">
+${esc(x.urgency)}
+</span>
+
+<span class="badge">
+${esc(x.intent)}
+</span>
+
+<p>${esc(x.message)}</p>
+
+<small class="muted">
+${esc(x.ai_reply)}
+</small>
+
+<p>
+
+<select onchange="status(${x.id},this.value)">
+
+<option ${x.status==="new"?"selected":""}>new</option>
+
+<option ${x.status==="contacted"?"selected":""}>contacted</option>
+
+<option ${x.status==="booked"?"selected":""}>booked</option>
+
+<option ${x.status==="closed"?"selected":""}>closed</option>
+
+</select>
+
+</p>
+
+</div>
+
+`).join("")
+:"No leads yet.";
+}
+
+async function status(id,s){
+
+await fetch("/api/leads/"+id,{
+method:"PATCH",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({status:s})
+});
+
+load();
+}
+
+function esc(s){
+
+return String(s??"").replace(/[&<>"']/g,c=>({
+
+"&":"&amp;",
+"<":"&lt;",
+">":"&gt;",
+'"':"&quot;",
+"'":"&#039;"
+
+}[c]));
+
+}
+
+load();
+
+</script>
+
+</body>
+</html>
